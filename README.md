@@ -1,6 +1,6 @@
 # IEEE 1588 PTPD FOR EMBEDDED MICROCONTROLLERS STM32H7
 
-IEEE 1588 PTP daemon for STM32H7 v2 supporting FreeRTOS, lwip, and hardware timestamping. The software is tested to work with LWIP 2.x and FreeRTOS 10.3.1. The operating system interface is utilizing CMSIS-RTOS version 1.02.
+IEEE 1588 PTP daemon v2 for STM32H7 supporting FreeRTOS, lwip, and hardware timestamping. The software is tested to work with LWIP 2.x and FreeRTOS 10.3.1. The operating system interface is utilizing CMSIS-RTOS version 1.02.
 
 ## Usage
 1. Make sure lwip is working properly and is stalbe with FreeRTOS.

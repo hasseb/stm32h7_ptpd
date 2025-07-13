@@ -38,8 +38,6 @@
 #include <stdbool.h>
 #include "ptpd/src/ptpd.h"
 #endif
-#include "ksz8xxx/ksz8xxx.h"
-#include "user_functions.h"
 /* USER CODE END 0 */
 
 /* Private define ------------------------------------------------------------*/
@@ -319,12 +317,7 @@ static void low_level_init(struct netif *netif)
   heth.Init.RxBuffLen = 1536;
 
   /* USER CODE BEGIN MACADDRESS */
-  MACAddr[0] = flash_readByte(MAC_ADDRESS1);
-  MACAddr[1] = flash_readByte(MAC_ADDRESS2);
-  MACAddr[2] = flash_readByte(MAC_ADDRESS3);
-  MACAddr[3] = flash_readByte(MAC_ADDRESS4);
-  MACAddr[4] = flash_readByte(MAC_ADDRESS5);
-  MACAddr[5] = flash_readByte(MAC_ADDRESS6);
+
   /* USER CODE END MACADDRESS */
 
   hal_eth_init_status = HAL_ETH_Init(&heth);
@@ -383,7 +376,6 @@ static void low_level_init(struct netif *netif)
 /* USER CODE BEGIN PHY_PRE_CONFIG */
   // Allow multicast packets
   ETH->MACPFR |= (1<<4);
-  ksz8863_Init();
 /* USER CODE END PHY_PRE_CONFIG */
    /* initialize the ETH PHY */
    eth_phy_init();

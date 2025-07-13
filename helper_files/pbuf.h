@@ -219,6 +219,14 @@ struct pbuf {
 
   /** For incoming packets, this contains the input netif's index */
   u8_t if_idx;
+#if LWIP_PTPD
+  /**
+   * a fields that contains the timestamp for when this packet was
+   * received.
+   */
+  s32_t time_sec;
+  s32_t time_nsec;
+#endif
 };
 
 
