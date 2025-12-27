@@ -1039,8 +1039,8 @@ HAL_StatusTypeDef HAL_ETH_Transmit_IT(ETH_HandleTypeDef *heth, ETH_TxPacketConfi
   */
 HAL_StatusTypeDef HAL_ETH_ReadData(ETH_HandleTypeDef *heth, void **pAppBuff)
 {
-  uint32_t descidx;
-  ETH_DMADescTypeDef *dmarxdesc;
+  uint32_t descidx, descidx_temp;  // hasseb modification
+  ETH_DMADescTypeDef *dmarxdesc, *dmarxdesc_temp;  // hasseb modification
   uint32_t desccnt = 0U;
   uint32_t desccntmax;
   uint32_t bufflength;
@@ -1065,13 +1065,14 @@ HAL_StatusTypeDef HAL_ETH_ReadData(ETH_HandleTypeDef *heth, void **pAppBuff)
   while ((READ_BIT(dmarxdesc->DESC3, ETH_DMARXNDESCWBF_OWN) == (uint32_t)RESET) && (desccnt < desccntmax)
          && (rxdataready == 0U))
   {
-    if (READ_BIT(dmarxdesc->DESC3,  ETH_DMARXNDESCWBF_CTXT)  != (uint32_t)RESET)
-    {
-      /* Get timestamp high */
-      heth->RxDescList.TimeStamp.TimeStampHigh = dmarxdesc->DESC1;
-      /* Get timestamp low */
-      heth->RxDescList.TimeStamp.TimeStampLow  = dmarxdesc->DESC0;
-    }
+	// hasseb modification
+    // if (READ_BIT(dmarxdesc->DESC3,  ETH_DMARXNDESCWBF_CTXT)  != (uint32_t)RESET)
+    // {
+      // /* Get timestamp high */
+      // heth->RxDescList.TimeStamp.TimeStampHigh = dmarxdesc->DESC1;
+      // /* Get timestamp low */
+      // heth->RxDescList.TimeStamp.TimeStampLow  = dmarxdesc->DESC0;
+    // }
     if ((READ_BIT(dmarxdesc->DESC3, ETH_DMARXNDESCWBF_FD) != (uint32_t)RESET) || (heth->RxDescList.pRxStart != NULL))
     {
       /* Check if first descriptor */
@@ -1092,6 +1093,23 @@ HAL_StatusTypeDef HAL_ETH_ReadData(ETH_HandleTypeDef *heth, void **pAppBuff)
 
         /* Packet ready */
         rxdataready = 1;
+		
+		// hasseb modification
+		if (READ_BIT(dmarxdesc->DESC1, ETH_DMARXNDESCWBF_TSA) != (uint32_t)RESET)
+        {
+          descidx_temp = descidx;
+          INCR_RX_DESC_INDEX(descidx_temp, 1U);
+
+          dmarxdesc_temp = (ETH_DMADescTypeDef *)heth->RxDescList.RxDesc[descidx_temp];
+
+          if (READ_BIT(dmarxdesc_temp->DESC3, ETH_DMARXNDESCWBF_CTXT) != (uint32_t)RESET)
+          {
+            /* Get timestamp high */
+            heth->RxDescList.TimeStamp.TimeStampHigh = dmarxdesc_temp->DESC1;
+            /* Get timestamp low */
+            heth->RxDescList.TimeStamp.TimeStampLow  = dmarxdesc_temp->DESC0;
+          }
+        }
       }
 
       /* Link data */
@@ -3344,6 +3362,8 @@ static uint32_t ETH_Prepare_Tx_Descriptors(ETH_HandleTypeDef *heth, const ETH_Tx
 
   /* Mark it as LAST descriptor */
   SET_BIT(dmatxdesc->DESC3, ETH_DMATXNDESCRF_LD);
+  /* Set timestamp enable bit */
+  SET_BIT(dmatxdesc->DESC2, ETH_DMATXNDESCRF_TTSE);  // hasseb modification
   /* Save the current packet address to expose it to the application */
   dmatxdesclist->PacketAddress[descidx] = dmatxdesclist->CurrentPacketAddress;
 
