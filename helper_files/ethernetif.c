@@ -47,7 +47,7 @@
 #define ETHIF_TX_TIMEOUT (2000U)
 /* USER CODE BEGIN OS_THREAD_STACK_SIZE_WITH_RTOS */
 /* Stack size of the interface thread */
-#define INTERFACE_THREAD_STACK_SIZE ( 8192 )
+#define INTERFACE_THREAD_STACK_SIZE ( 1536 )
 /* USER CODE END OS_THREAD_STACK_SIZE_WITH_RTOS */
 /* Network interface name */
 #define IFNAME0 's'
@@ -427,6 +427,23 @@ static err_t low_level_output(struct netif *netif, struct pbuf *p)
 
   memset(Txbuffer, 0 , ETH_TX_DESC_CNT*sizeof(ETH_BufferTypeDef));
 
+#if LWIP_PTPD
+  // Clear the timestamp information.
+  p->time_sec = 0;
+  p->time_nsec = 0;
+
+  // Does this look like a PTP IEEE 1588 frame?
+  bool is_ptp = is_ptp1588_frame((uint8_t*)p->payload);
+
+  // If we have a PTP frame, save the descriptor
+  if (is_ptp)
+  {
+	ETH_TxDescListTypeDef *dmatxdesclist = &heth.TxDescList;
+	uint32_t descidx = dmatxdesclist->CurTxDesc;
+	ethernet_tx_entries[ethernet_tx_head].tx_desc = (ETH_DMADescTypeDef *)dmatxdesclist->TxDesc[descidx];
+  }
+#endif
+
   for(q = p; q != NULL; q = q->next)
   {
     if(i >= ETH_TX_DESC_CNT)
@@ -479,6 +496,34 @@ static err_t low_level_output(struct netif *netif, struct pbuf *p)
     }
   }while(errval == ERR_BUF);
 
+#if LWIP_PTPD
+  // Keep track of the DMA TX descriptors used for PTP frames.
+  if ((errval == HAL_OK) && is_ptp)
+  {
+    // Unique id for each packet sent. Range 1 to 10000.
+    static int32_t unique_id = 1;
+
+    // Save a unique id in the nanosecond field. This is a convenient place
+    // to save the unique id in the packet buffer we can later use to retrieve
+    // the timestamp information after the is sent.
+    p->time_sec = 0;
+    p->time_nsec = unique_id;
+
+    // Update the unique id keeping it non-zero.
+    unique_id = (unique_id + 1) > 10000 ? 1 : unique_id + 1;
+
+    // Fill in the next entry to use.
+    ethernet_tx_entries[ethernet_tx_head].id = p->time_nsec;
+
+    // Increment the head.
+    ethernet_tx_head = (ethernet_tx_head + 1) == ETH_TX_DESC_CNT ? 0 : ethernet_tx_head + 1;
+
+    // Increment the tail if we have wrapped.
+    if (ethernet_tx_head == ethernet_tx_tail)
+      ethernet_tx_tail = (ethernet_tx_tail + 1) == ETH_TX_DESC_CNT ? 0 : ethernet_tx_tail + 1;
+  }
+#endif
+
   return errval;
 }
 
@@ -497,6 +542,14 @@ static struct pbuf * low_level_input(struct netif *netif)
   if(RxAllocStatus == RX_ALLOC_OK)
   {
     HAL_ETH_ReadData(&heth, (void **)&p);
+#if LWIP_PTPD
+    if(p != NULL)
+    {
+      // Copy the frame timestamp.
+      p->time_sec = heth.RxDescList.TimeStamp.TimeStampHigh;
+      p->time_nsec = subsecond_to_nanosecond(heth.RxDescList.TimeStamp.TimeStampLow);
+    }
+#endif
   }
 
   return p;
